@@ -54,6 +54,7 @@ GLOBAL FUNCTION _SEPARATE_SRBS {
             }
         }
     }
+    _MESSAGE_SENDER("BOOSTER", "Seperate").
     
 }
 
@@ -61,18 +62,18 @@ global function _Steering_Control {
     parameter _STAGE.
 
     if _Stage = "S1" {
-        set _Heading_Control to _LAUNCH_AZIMUTH(_INCLINE_TARGET, _APOGEE_TARGET).
+        set _Heading_Control to _LAUNCH_AZIMUTH(_INCLINE_TARGET, _PARK_ORBIT).
         set _Pitch_Control to max(_PITCHOVER_FINAL_ANGLE, 90 * (1 - ship:altitude / _PITCHOVER_FINAL_ALTITUDE)).
     } else if _Stage = "S2" {
-        if _APOGEE_TARGET > body:atm:height + 20000 {
+        if _PARK_ORBIT > body:atm:height + 20000 {
             set _apoapsisoffset to ship:apoapsis - body:atm:height.
         } else {
-            set _apoapsisoffset to ship:apoapsis - _APOGEE_TARGET.
+            set _apoapsisoffset to ship:apoapsis - _PARK_ORBIT.
         }
 
         set _halvedata to 15 - eta:apoapsis.
 
-        set _Heading_Control to _LAUNCH_AZIMUTH(_INCLINE_TARGET, _APOGEE_TARGET).
+        set _Heading_Control to _LAUNCH_AZIMUTH(_INCLINE_TARGET, _PARK_ORBIT).
         set _Pitch_Control to (_halvedata * 2) + ((_apoapsisoffset / 5000) * 10).
     }
 }

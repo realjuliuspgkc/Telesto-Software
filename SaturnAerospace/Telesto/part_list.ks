@@ -30,12 +30,12 @@ GLOBAL _PART_TAGS is lexicon( // Rocket kOS tags should be exactly to what is be
 
     "SRB", lexicon( // SRB Items
         "Boost Core", "B_CORE",
+        "Boost Control", "B_CONT",
         "Boost Engine", "B_ENG",
         "Boost Seperation", "B_SEP",
         "Boost Decoupler", "B_DEC",
-        "Left Hinge", "B_LHINGE",
-        "Right Hinge", "B_RHINGE",
-        "Hinge Control", "B_CONTROL"
+        "Left Hinge", "LHINGE",
+        "Right Hinge", "RHINGE"
     ),
 
     "CAPSULE", lexicon(
@@ -43,6 +43,7 @@ GLOBAL _PART_TAGS is lexicon( // Rocket kOS tags should be exactly to what is be
         "Capsule Body", "CAP_BODY",
         "Capsule Abort", "CAP_ABORT",
         "Capsule Service Bay", "CAP_SERVICE",
-        "Capsule Seperator", "CAP_SEP"
+        "Capsule Seperator", "CAP_SEP",
+        "Capsule OMT", "CAP_OMT"
     )
 ).

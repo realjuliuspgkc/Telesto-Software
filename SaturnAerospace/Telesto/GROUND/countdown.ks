@@ -81,33 +81,44 @@ GLOBAL FUNCTION _GROUND_COUNTDOWN {
     } ELSE IF _T_TYPE = "Launch" {
         log "Launch Mode Selected" to _EVT_DATA_DIRECTORY.
         log _VEHICLE_CONFIGURATION + " is the set vehicle config." to _EVT_DATA_DIRECTORY.
-        log "Launch Countdown beginning from T- " + _CLOCK_TIME(_T) to _EVT_DATA_DIRECTORY.
         UNTIL missionTime = 1 { // For non rendezvous missions
-            _MANUAL_HOLD_CHECK(). // AG9 TO ABORT.
-            _AUTOMATIC_VALIDATION(). // AUTOMATIC VEHICLE VALIDATION
-            _FLIGHT_MAIN(). // COUNTDOWN EVENTS
-            _MESSAGE_LISTENER(). // LISTEN FOR OTHER MESSAGES FROM SEPARATE COMPUTERS
+            if _VESSELTARGET = false {
+                _MANUAL_HOLD_CHECK(). // AG9 TO ABORT.
+                _AUTOMATIC_VALIDATION(). // AUTOMATIC VEHICLE VALIDATION
+                _FLIGHT_MAIN(). // COUNTDOWN EVENTS
+                _MESSAGE_LISTENER(). // LISTEN FOR OTHER MESSAGES FROM SEPARATE COMPUTERS
 
-            // VISUAL
-                PRINT "T-" + _CLOCK_TIME(_T) + "            " at (1,1).
-                LOG "T-" + _CLOCK_TIME(_T) TO "0:/Data/Telesto/mission_Time.txt".
+                // VISUAL
+                    PRINT "T-" + _CLOCK_TIME(_T) + "            " at (1,1).
+                    LOG "T-" + _CLOCK_TIME(_T) TO "0:/Data/Telesto/mission_Time.txt".
 
-            if _DEBUG_MENU_ACTIVE = true { _PRINT_DEBUG(). }
+                if _DEBUG_MENU_ACTIVE = true { _PRINT_DEBUG(). }
 
-            // LOGIC 
-                IF _T > kuniverse:realworldtime {
-                    SET _T to _T - kuniverse:realworldtime.
-                } ELSE IF _T = 0 or _T < kuniverse:realworldtime {
-                    set _T to _T - 0.5.
-                }
+                // LOGIC 
+                    IF _T > kuniverse:realworldtime {
+                        SET _T to _T - kuniverse:realworldtime.
+                    } ELSE IF _T = 0 or _T < kuniverse:realworldtime {
+                        set _T to _T - 0.5.
+                    }
+                    
+                wait 0.5. // Half Second Loops
+            } else if _VESSELTARGET = true {
+                _MANUAL_HOLD_CHECK(). // AG9 TO ABORT.
+                _AUTOMATIC_VALIDATION(). // AUTOMATIC VEHICLE VALIDATION
+                _FLIGHT_MAIN(). // COUNTDOWN EVENTS
+                _MESSAGE_LISTENER(). // LISTEN FOR OTHER MESSAGES FROM SEPARATE COMPUTERS
 
-            // BREAK
-                IF _T < 0 {
-                    wait 2. 
-                    break.
-                }
+                // VISUAL
+                    PRINT "T-" + _CLOCK_TIME(_T) + "            " at (1,1).
+                    LOG "T-" + _CLOCK_TIME(_T) TO "0:/Data/Telesto/mission_Time.txt".
 
-            wait 0.5. // Half Second Loops
+                if _DEBUG_MENU_ACTIVE = true { _PRINT_DEBUG(). }
+
+                // LOGIC 
+                    set _T to round(_WINDOW(_TARGET_SPACECRAFT) - time:seconds).
+
+                wait 0.5. // Half Second Loops
+            }
         }
     }
 

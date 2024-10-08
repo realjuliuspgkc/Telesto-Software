@@ -25,6 +25,7 @@ local FUNCTION _FLIGHT_COMPUTER_INIT {
         set kuniverse:defaultloaddistance:flying:unload to 30000.
 
     // Initialisation
+        _DEFINE_COMPUTERS().
         _DEFINE_SETTINGS(). // Grab settings for the mission
         _DEFINE_COUNTDOWN(). // Grab countdown items
         _DEFINE_TELESTO_S1(). // Parts for S1
@@ -54,6 +55,7 @@ LOCAL FUNCTION _TELESTO_FLIGHT_MAIN {
     // Stage 2 
         _INITIAL_GUIDANCE(). // Guide initially to push our apogee higher
         _ORBITAL_INSERTION(). // Finalise orbit by raising periapsis if needed
+        _ORBIT_TOUCHUP().
         _CAPSULE_DEPLOY().
         // _DEORBIT().
 }
@@ -87,7 +89,6 @@ LOCAL FUNCTION _BOOSTER_GUIDANCE { // Begin guidance/pitchover
 
                 WAIT 2. // Settle the steering
 
-                _MESSAGE_SENDER("SRB", "Seperate").
                 _SEPARATE_SRBS(). // Separate the SRB's
                 log "SRB Seperation at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
                 set _SRB_ATTACHED to false.
@@ -168,7 +169,7 @@ log "S2 Guidance Begin at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
 
     _ABORT_TWR_DELETUS().
 
-    until ship:apoapsis >= _APOGEE_TARGET - 2500 and ship:periapsis > body:atm:height - 2000 {
+    until ship:apoapsis >= _PARK_ORBIT - 2500 and ship:periapsis > body:atm:height - 2000 {
         local _THROT_CONTROL is (_G_FORCE_LIMIT * ship:mass / (ship:maxThrust + 0.1) * 100).
         _Steering_Control("S2"). // begins the guidance
 
@@ -182,11 +183,11 @@ log "S2 Guidance Begin at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
             if ship:verticalSpeed < 0 and alt:radar < body:atm:height {set _Pitch_Control to -ship:verticalspeed.}
 
         // Loop Break Scenarios
-            if ship:apoapsis >= _APOGEE_TARGET + 1500 and ship:periapsis >= body:atm:height - 25000 {
+            if ship:apoapsis >= _PARK_ORBIT + 1500 and ship:periapsis >= body:atm:height - 25000 {
                 print "BROKE LINE 155" at (0,4).
                 log "Loop break scenario on line 155 broke at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
                 break.}
-            if _APOGEE_TARGET > 500000 and ship:apoapsis >= _APOGEE_TARGET - 10000 {
+            if _PARK_ORBIT > 500000 and ship:apoapsis >= _PARK_ORBIT - 10000 {
                 print "BROKE LINE 159" at (0,4).
                 log "Loop break scenario on line 159 broke at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
                 break.}
@@ -195,11 +196,11 @@ log "S2 Guidance Begin at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
         // Capsule abort to be added here
 
         // Throttle & steering apparently?
-            _INCLINE_MANAGER(10).
+            _INCLINE_MANAGER(3).
             lock steering to heading(_Heading_Control, _Pitch_Control, 0). // Steer the damn rocket.
 
-            if ship:apoapsis <= _APOGEE_TARGET - 20000 {lock throttle to _THROT_CONTROL.}
-            if ship:apoapsis >= _APOGEE_TARGET - 20000 and ship:periapsis >= _PERIGEE_TARGET - 100000 {set config:ipu to 2000. lock throttle to _THROT_CONTROL - 40.}
+            if ship:apoapsis <= _PARK_ORBIT - 20000 {lock throttle to _THROT_CONTROL.}
+            if ship:apoapsis >= _PARK_ORBIT - 20000 and ship:periapsis >= _PARK_ORBIT - 100000 {set config:ipu to 2000. lock throttle to _THROT_CONTROL - 40.}
 
         wait 0.1. // waiting for this 0.1 of a second to reduce lag apparently.
 
@@ -216,37 +217,37 @@ log "S2 Guidance Begin at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
 LOCAL FUNCTION _ORBITAL_INSERTION { // S2 Orbital Insertion
     log "Orbital Insertion Begin at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
     print "Orbital Insertion" at (0,1).
-    LOCAL _TARGETVEL is _ORBITALVELOCITYPERIGEE(_APOGEE_TARGET, _PERIGEE_TARGET).
-    log "_TARGETVEL " + _TARGETVEL to "0:/Data/Telesto/_REQUIREDBURNDURATION.txt".
-    local _CURRENTVEL is _ORBITALVELOCITYAPOGEE(ship:apoapsis, ship:periapsis).
-    log "_CURRENTVEL " + _CURRENTVEL to "0:/Data/Telesto/_REQUIREDBURNDURATION.txt".
-    local _VELTOGO is _TARGETVEL - _CURRENTVEL.
-    log "_VELTOGO " + _VELTOGO to "0:/Data/Telesto/_REQUIREDBURNDURATION.txt".
-    local _MAXACCEL is ship:maxthrust / ship:mass.
-    log "_MAXACCEL " + _MAXACCEL to "0:/Data/Telesto/_REQUIREDBURNDURATION.txt".
-    local _REQUIREDBURNDURATION is _VELTOGO / _MAXACCEL.
-    log "_REQUIREDBURNDURATION " + _REQUIREDBURNDURATION to "0:/Data/Telesto/_REQUIREDBURNDURATION.txt".
-    print "Burn duration to be done at apoapsis: " + _REQUIREDBURNDURATION at (0,6).
-        
+
+    local maxthrot is 0.
+    
     lock steering to prograde.
 
-    until eta:apoapsis - 1 <= (_REQUIREDBURNDURATION / 2) {
+    until eta:apoapsis <= 60 {
 
-        if ship:apoapsis < _APOGEE_TARGET + 10 and eta:apoapsis > 60 {rcs on. set ship:control:fore to 0.5. print "Raising Apoapsis" at (0,7).}
-        else if ship:apoapsis >= _APOGEE_TARGET + 50 and eta:apoapsis > 60 {rcs on. set ship:control:fore to -0.5. print "Lowering Apoapsis" at (0,7).}
-        else if ship:apoapsis >= _APOGEE_TARGET + 10 and ship:apoapsis < _APOGEE_TARGET + 50 and eta:apoapsis > 60 {set ship:control:fore to 0. rcs off. print "Stopping Corrections" at (0,7).}
-        else if ship:apoapsis >= _APOGEE_TARGET + 10 and ship:periapsis >= _PERIGEE_TARGET + 10 {set ship:control:fore to 0. rcs off.}
+        if ship:apoapsis < _PARK_ORBIT + 10 and eta:apoapsis > 60 {rcs on. set ship:control:fore to 0.5. print "Raising Apoapsis" at (0,7).}
+        else if ship:apoapsis >= _PARK_ORBIT + 50 and eta:apoapsis > 60 {rcs on. set ship:control:fore to -0.5. print "Lowering Apoapsis" at (0,7).}
+        else if ship:apoapsis >= _PARK_ORBIT + 10 and ship:apoapsis < _PARK_ORBIT + 50 and eta:apoapsis > 60 {set ship:control:fore to 0. rcs off. print "Stopping Corrections" at (0,7).}
+        else if ship:apoapsis >= _PARK_ORBIT + 10 and ship:periapsis >= _PARK_ORBIT + 10 {set ship:control:fore to 0. rcs off.}
 
         wait 0.1.
     }
+    until eta:apoapsis <= 15 and ship:periapsis = _PARK_ORBIT {
+        if ship:periapsis <= _PARK_ORBIT - 20000 {set maxthrot to 0.7.}
+        else if ship:periapsis <= _PARK_ORBIT - 500 {set maxthrot to 0.4.}
+        else if ship:periapsis <= _PARK_ORBIT - 150 {set maxthrot to 0.3.}
+        else if ship:periapsis <= _PARK_ORBIT - 150 {set maxthrot to 0.2.}
+        else if ship:periapsis <= _PARK_ORBIT - 50 {set maxthrot to 0.1.}
+        else if ship:periapsis >= _PARK_ORBIT {set maxthrot to 0.}
+    }
+    
     set ship:control:fore to 0.
     print "Apoapsis is ok.. the loop has ended so." at (0,5).
     log "Apoapsis is set at: " + round(ship:apoapsis, 2) + " at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
     
-    lock throttle to 0.7.
+    lock throttle to maxthrot.
     
-    until ship:periapsis >=(_PERIGEE_TARGET - 1000) {
-        if ship:periapsis >= _PERIGEE_TARGET - 10000 {lock throttle to 0.4.}
+    until ship:periapsis >=(_PARK_ORBIT - 1000) {
+        if ship:periapsis >= _PARK_ORBIT - 10000 {lock throttle to 0.4.}
 
         wait 0.
     }
@@ -257,14 +258,27 @@ LOCAL FUNCTION _ORBITAL_INSERTION { // S2 Orbital Insertion
     log "Orbital Insertion finished and at a final orbit of: " + "APOAPSIS: " + round(SHIP:apoapsis, 2) + "KM" + " PERIAPSIS: " + round(ship:periapsis, 2) + "KM" + " at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
     wait 5.
 
-    // until ship:periapsis >= _PERIGEE_TARGET + 10 {
-    //     if ship:periapsis <= _PERIGEE_TARGET {rcs on. set ship:control:fore to 0.5.}
-    //     else if ship:periapsis >= _PERIGEE_TARGET + 10 {set ship:control:fore to 0. rcs off.}
-    // }
     set ship:control:fore to 0.
     rcs off.
     _ENGINE_CONTROL("Stage 2", "shutdown").
-    // shutdown.
+}
+
+local function _ORBIT_TOUCHUP {
+    until ship:periapsis >= _PARK_ORBIT + 5 {
+        if ship:periapsis < _PARK_ORBIT + 10 and eta:periapsis > 60 {rcs on. set ship:control:fore to 0.5. print "Raising Periapsis" at (0,7).}
+        else if ship:periapsis >= _PARK_ORBIT + 50 and eta:periapsis > 60 {rcs on. set ship:control:fore to -0.5. print "Lowering Periapsis" at (0,7).}
+        else if ship:periapsis >= _PARK_ORBIT + 10 and ship:periapsis < _PARK_ORBIT + 50 and eta:periapsis > 60 {set ship:control:fore to 0. rcs off. print "Stopping Corrections" at (0,7).}
+
+        wait 0.1.
+        log "Periapsis has been touched up to: " + round(ship:periapsis, 2) + " at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
+    }
+    until ship:apoapsis >= _PARK_ORBIT + 5 {
+        if ship:apoapsis < _PARK_ORBIT + 10 and eta:apoapsis > 60 {rcs on. set ship:control:fore to 0.5. print "Raising Apoapsis" at (0,7).}
+        else if ship:apoapsis >= _PARK_ORBIT + 50 and eta:apoapsis > 60 {rcs on. set ship:control:fore to -0.5. print "Lowering Apoapsis" at (0,7).}
+        else if ship:apoapsis >= _PARK_ORBIT + 10 and ship:apoapsis < _PARK_ORBIT + 50 and eta:apoapsis > 60 {set ship:control:fore to 0. rcs off. print "Stopping Corrections" at (0,7).}
+        wait 0.1.
+        log "Apoapsis has been touched up to: " + round(ship:periapsis, 2) + " at: " + _CLOCK_TIME(missionTime) to _EVT_DATA_DIRECTORY.
+    }
 }
 
 LOCAL FUNCTION _CAPSULE_DEPLOY {
@@ -273,7 +287,6 @@ LOCAL FUNCTION _CAPSULE_DEPLOY {
     wait 5.
     _S2_PAYL:getmodule("ModuleDecouple"):doaction("Decouple", true).
 }
-
 
 local function _DEORBIT {
 

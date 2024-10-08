@@ -1,22 +1,23 @@
 // Saturn Aerospace 2024
 // 
 // Made By Julius & Quasy
-//    Telesto V4
+//    Telesto V5
 // 
 // ------------------------
 //   Mission Settings
 // ------------------------
-// WORKS ON THE "Telesto V4" VEHICLE
+// WORKS ON THE "Telesto V5" VEHICLE
 
 GLOBAL _MISSION_SETTINGS IS LEXICON(
-    "MISSION NAME", "OFT-2",
+    "MISSION NAME", "OFT-4",
 
-    "APOGEE", 150, // HIGHEST POINT IN ORBIT (IN KM)
-    "PERIGEE", 150, // LOWEST POINT IN ORBIT (IN KM)
-    "INCLINATION", 23, // INCLINATION
+    "APOGEE", 150, // HIGHEST POINT IN ORBIT (IN KM) for capsule, this is the final orbit it will move itself up to from parking orbit. (IF DOCKING WITH SOMETHING, MAKE THIS THE ORBIT OF THE TARGET)
+    "PERIGEE", 150, // LOWEST POINT IN ORBIT (IN KM) for capsule, this is the final orbit it will move itself up to from parking orbit. (IF DOCKING WITH SOMETHING, MAKE THIS THE ORBIT OF THE TARGET)
+    "INCLINATION", 23, // INCLINATION (MAKE THIS INCLINATION THE TARGET INCLINATION IF DOCKING)
 
     "ROCKET CONFIG", "Capsule", // EITHER PAYLOAD OR CAPSULE.
     "COUNTDOWN TYPE", "Launch", // EITHER "Static Fire" OR "Launch"
+    "TARGET VESSEL","None", // Whether to rendezvous with a craft/station. SET TO "FALSE" IF DOING A NON-RENDEZVOUS.
     "DEBUG SHOW", true // Shows the built in Debug Menu
 ).
 
@@ -44,5 +45,6 @@ GLOBAL _COUNTDOWN_EVENTS IS LEXICON(
 ).
 
 global _EXTRA is lexicon(
-    "G-Force Limit", 5
+    "G-Force Limit", 5,
+    "Parking Orbit", 150
 ).

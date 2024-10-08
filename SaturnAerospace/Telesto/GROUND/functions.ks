@@ -13,16 +13,29 @@ GLOBAL FUNCTION _DEFINE_SETTINGS {
     SET SHIP:NAME TO _MISSION_SETTINGS["MISSION NAME"].
 
     // The apogee & perigee need to be multiplied by 1000 if you want to use km instead of m for the settings
-    GLOBAL _APOGEE_TARGET TO _MISSION_SETTINGS["APOGEE"] * 1000.
-    GLOBAL _PERIGEE_TARGET TO _MISSION_SETTINGS["PERIGEE"] * 1000.
+    GLOBAL _FINAL_APOGEE TO _MISSION_SETTINGS["APOGEE"] * 1000.
+    GLOBAL _FINAL_PERIGEE TO _MISSION_SETTINGS["PERIGEE"] * 1000.
     GLOBAL _INCLINE_TARGET TO _MISSION_SETTINGS["INCLINATION"].
 
     GLOBAL _VEHICLE_CONFIGURATION TO _MISSION_SETTINGS["ROCKET CONFIG"]. 
     GLOBAL _COUNTDOWN_TYPE TO _MISSION_SETTINGS["COUNTDOWN TYPE"].
+
+    if _MISSION_SETTINGS["Target Vessel"] = "None" {
+        global _VESSELTARGET to false.
+    } ELSE {
+        global _VESSELTARGET to true.
+
+        if _MISSION_SETTINGS["Target Vessel"] = "Other" {
+            global _TARGET_SPACECRAFT to _MISSION_SETTINGS["Target Vessel"].
+        } else {
+            global _TARGET_SPACECRAFT to vessel(_MISSION_SETTINGS["Target Vessel"]).
+        }
+    }
+    
     GLOBAL _DEBUG_MENU_ACTIVE TO _MISSION_SETTINGS["DEBUG SHOW"].
 
     global _G_FORCELIMIT to _EXTRA["G-Force Limit"].
-
+    global _PARK_ORBIT to _EXTRA["Parking Orbit"].
 
     global _INCLINE_CORRECTION is 0.
     global _PROGRADE_HEAD is _COMPASS_FOR(). 
@@ -66,11 +79,10 @@ GLOBAL FUNCTION _DEFINE_COUNTDOWN {
 // PARTS
 
 GLOBAL FUNCTION _DEFINE_COMPUTERS {
-    GLOBAL _GND_CORE IS ship:partstagged(_PART_TAGS["GND"]["Core"])[0].
+    GLOBAL _GND_CORE IS ship:partstagged(_PART_TAGS["GND"]["CORE"])[0].
     GLOBAL _S1_CORE IS ship:partstagged(_PART_TAGS["S1"]["S1 CORE"])[0].
     GLOBAL _S2_CORE IS ship:partstagged(_PART_TAGS["S2"]["S2 CORE"])[0].
-    global _SRB_CORE is ship:partstagged(_PART_TAGS["SRB"]["Boost Core"]).
-    global _CAP_CORE is ship:partstagged(_PART_TAGS["CAPSULE"]["Capsule Core"])[0].
+    global _BOOST_CORE is ship:partstagged(_PART_TAGS["SRB"]["Boost Core"]).
 }
 
 GLOBAL FUNCTION _DEFINE_PAD_PARTS {
@@ -87,14 +99,14 @@ GLOBAL FUNCTION _DEFINE_TELESTO_S1 {
     GLOBAL _S1_INTER IS SHIP:partstagged(_PART_TAGS["S1"]["S1 INTERSTAGE"])[0].
     global _S1_ENG is ship:partstagged(_PART_TAGS["S1"]["S1 Engine"]).
     global _S_SEP is ship:partstagged(_PART_TAGS["S1"]["Stage Seperator Motors"]).
-    global _S1_FTS is ship:partstagged(_PART_TAGS["S1"]["S1 FTS"])[0].
+    global _S1_FTS is ship:partstagged(_PART_TAGS["S1"]["S1 FTS"]).
 } 
 
 GLOBAL FUNCTION _DEFINE_TELESTO_S2 {
     GLOBAL _S2_FUEL_TANK IS ship:partstagged(_PART_TAGS["S2"]["S2 TANK"])[0].
     GLOBAL _S2_ENG is ship:partstagged(_PART_TAGS["S2"]["S2 ENGINE"]).
-    global _S2_FAIRING is ship:partstagged(_PART_TAGS["S2"]["Fairing"])[0].
-    global _S2_FTS is ship:partstagged(_PART_TAGS["S2"]["S2 FTS"])[0].
+    global _S2_FAIRING is ship:partstagged(_PART_TAGS["S2"]["Fairing"]).
+    global _S2_FTS is ship:partstagged(_PART_TAGS["S2"]["S2 FTS"]).
     global _S2_PAYL is ship:partstagged(_PART_TAGS["S2"]["S2 Payload"])[0].
     global _CAP_ABORT is ship:partstagged(_PART_TAGS["CAPSULE"]["Capsule Abort"])[0].
 }
@@ -103,16 +115,16 @@ GLOBAL FUNCTION _DEFINE_TELESTO_SRB {
     GLOBAL _SRB_DECOUPLER IS ship:partstagged(_PART_TAGS["SRB"]["Boost Decoupler"]).
     GLOBAL _SRB_SEP is ship:partstagged(_PART_TAGS["SRB"]["Boost Seperation"]).
     GLOBAL _SRB_ENG is ship:partstagged(_PART_TAGS["SRB"]["Boost Engine"]).
-    GLOBAL _LEFT_HINGE is ship:partstagged(_PART_TAGS["SRB"]["Left Hinge"])[0].
-    global _RIGHT_HINGE is ship:partstagged(_PART_TAGS["SRB"]["Right Hinge"])[0].
-    global _B_CONTROL is ship:partstagged(_PART_TAGS["SRB"]["Hinge Control"])[0].
+    global RHINGE is ship:partstagged(_PART_TAGS["SRB"]["Right Hinge"]).
+    global LHINGE is ship:partstagged(_PART_TAGS["SRB"]["Left Hinge"]).
 }
 
 GLOBAL FUNCTION _DEFINE_TELESTO_CAPSULE { // Narvi
-    global _CAP_BODY is ship:partstagged(_PART_TAGS["CAPSULE"]["Capsule Body"])[0].
-    global _CAP_SERVICE is ship:partstagged(_PART_TAGS["CAPSULE"]["Capsule Service Bay"])[0].
-    global _CAP_SEP is ship:partstagged(_PART_TAGS["CAPSULE"]["Capsule Seperator"])[0].
-
+    global _CAP_CORE is ship:partstagged(_PART_TAGS["CAPSULE"]["Capsule Core"])[0].
+    global _CAP_BODY is ship:partstagged(_PART_TAGS["CAPSULE"]["Capsule Body"]).
+    global _CAP_SERVICE is ship:partstagged(_PART_TAGS["CAPSULE"]["Capsule Service Bay"]).
+    global _CAP_SEP is ship:partstagged(_PART_TAGS["CAPSULE"]["Capsule Seperator"]).
+    global _CAP_OMT is ship:partstagged(_PART_TAGS["CAPSULE"]["Capsule OMT"])[3].
 }
 
 // COUNTDOWN FUNCTIONS
@@ -320,10 +332,12 @@ GLOBAL FUNCTION _MESSAGE_SENDER { // SENDS MESSAGE TO OTHER VESSELS
     } ELSE IF _TARGET = "CAPSULE" {
         local _CAP_CORE_CONNECTION is _CAP_CORE:getmodule("kOSProcessor"):connection.
         _CAP_CORE_CONNECTION:SENDMESSAGE(_CONTENTS).
-    } else if _TARGET = "SRB" {
-        for CPU in _SRB_CORE {
-            local _SRB_CORE_CONNECTION is CPU:getmodule("kOSProcessor"):connection.
-            _SRB_CORE_CONNECTION:SENDMESSAGE(_CONTENTS).
+    } ELSE IF _TARGET = "BOOSTER" {
+        FOR P in _BOOST_CORE {
+            IF P:MODULES:CONTAINS("kOSProcessor") { // If the parts contain the module
+                local _BOOST_CORE_CONNECTION is p:getmodule("kOSProcessor"):connection.
+                _BOOST_CORE_CONNECTION:SENDMESSAGE(_CONTENTS).
+            }
         }
     }
 }
@@ -334,7 +348,7 @@ GLOBAL FUNCTION _MESSAGE_SENDER { // SENDS MESSAGE TO OTHER VESSELS
 
 
 
-// AZIMUTH CALCULATION & VECTOR FUNCTIONS
+// AZIMUTH CALCULATION & VECTOR FUNCTIONS & extra launch calculation shit
 
 GLOBAL FUNCTION _LAUNCH_AZIMUTH { // From KSLib
     PARAMETER _TARGET_INCLINE, _ORBIT_ALT, _RAW is false, _AUTOSWITCH is false.
@@ -462,6 +476,26 @@ GLOBAL FUNCTION _EAST_FOR {
     return vcrs(ship:up:vector, ship:north:vector).
 }
 
+GLOBAL FUNCTION _WINDOW { // Timed launch window for Narvi / Target docking missions
+    PARAMETER _TARGET.
+
+    LOCAL _LAT is ship:latitude.
+    LOCAL _ECLIPTIC_NORM is vCrs(_TARGET:OBT:VELOCITY:ORBIT, _TARGET:BODY:POSITION - _TARGET:POSITION):NORMALIZED.
+    LOCAL _PLANET_NORM is heading(_TARGET_SPACECRAFT:obt:inclination - ship:obt:inclination, _LAT):VECTOR.
+    LOCAL _BODYINCLINE is vAng(_PLANET_NORM, _ECLIPTIC_NORM). // Finds the inclination on the variables above
+    LOCAL _BETA is arcCos(max(-1, min(1, cos(_BODYINCLINE) * SIN(_LAT) / sin(_BODYINCLINE)))).
+    LOCAL _INTERSECT_DIR is vCrs(_PLANET_NORM, _ECLIPTIC_NORM):normalized.
+    LOCAL _INTERSECT_POS is -vxcl(_PLANET_NORM, _ECLIPTIC_NORM):normalized.
+
+    LOCAL _LAUNCHTIME_DIR is (_INTERSECT_DIR * sin(_BETA) + _INTERSECT_POS * cos(_BETA)) * cos(_LAT) + sin(_LAT) * _PLANET_NORM.
+    LOCAL _LAUNCHTIME is vAng(_LAUNCHTIME_DIR, ship:position - body:position) / 360 * body:rotationperiod. 
+
+    IF vCrs(_LAUNCHTIME_DIR, ship:position - body:position) * _PLANET_NORM < 0 {
+        set _LAUNCHTIME to body:rotationperiod - _LAUNCHTIME.
+    }
+
+    RETURN time:Seconds + _LAUNCHTIME. // Value for countdown 
+}
 
 // FORMATTING FUNCTIONS
 
@@ -623,5 +657,9 @@ global function _EVT_LOGGING_PRECHECK {
             local _EVT_THIS_FLIGHT_NUMBER is _EVT_THIS_FLIGHT_NUMBER - 1.
             local _EVT_FLIGHT_LOG_DIRECTORY is _EVT_BASE_DIRECTORY + "/Flight" + _EVT_THIS_FLIGHT_NUMBER.
             global _EVT_DATA_DIRECTORY is _EVT_FLIGHT_LOG_DIRECTORY + "/FLIGHT_" + _EVT_THIS_FLIGHT_NUMBER + "_EVT_LOG.txt".
+    } else if _STAGE = "Capsule" {
+        local _EVT_THIS_FLIGHT_NUMBER is _EVT_THIS_FLIGHT_NUMBER - 1.
+        local _EVT_FLIGHT_LOG_DIRECTORY is _EVT_BASE_DIRECTORY + "/Flight" + _EVT_THIS_FLIGHT_NUMBER.
+        global _EVT_DATA_DIRECTORY is _EVT_FLIGHT_LOG_DIRECTORY + "/FLIGHT_" + _EVT_THIS_FLIGHT_NUMBER + "_EVT_LOG.txt".
     }
 }
